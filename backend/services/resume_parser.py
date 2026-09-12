@@ -41,6 +41,9 @@ def validate_file(file_data:byte, filename:str) -> Tuple[bool, str, Optional[str
         return False, 'upload file is empty ...please check the file you have uploaded and try again',
     
     try:
+        mime_type = magic.from_buffer(file_data, mime = True)
+    except Exception as e:
+        return False, f'Error determining file type: {}'
     
 
     
