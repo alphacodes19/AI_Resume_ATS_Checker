@@ -1,122 +1,44 @@
-import logging
-import sys
-import os
-from typing import Any, Callable, Dict, Optional, Tuple, TypeVar
+# ATS Resume Scorer — combined backend + frontend dependencies.
+#
+# Install with:
+#     pip install -r requirements.txt
+#
+# After installing, download the spaCy model the backend uses at startup:
+#     python -m spacy download en_core_web_md
+#
+# WeasyPrint (used for PDF export) also needs system libraries on Linux:
+#     sudo dnf install -y cairo pango gdk-pixbuf2 libffi    # Fedora
+#     sudo apt install -y libcairo2 libpango-1.0-0 libpangoft2-1.0-0 libffi-dev  # Debian/Ubuntu
 
-LOG_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'logs')
-os.makedirs(LOG_DIR, exist_ok=True)
+# ── Backend: web framework ──
+fastapi>=0.110
+uvicorn[standard]>=0.27
+pydantic>=2.6
+python-multipart>=0.0.9      # required by FastAPI for File/Form uploads
+python-dotenv>=1.0
 
-logger = logging.getLogger('ats_resume_scorer')
-logger.setLevel(logging.INFO)
+# ── Backend: NLP / ML ──
+spacy>=3.7,<4.0
+sentence-transformers>=2.5
+numpy>=1.26
+rapidfuzz>=3.6
 
-# Simplified file handler - only basic logs
-file_handler = logging.FileHandler(os.path.join(LOG_DIR, "ats_scorer.log"))
-file_handler.setLevel(logging.INFO)
-file_handler.setFormatter(logging.Formatter(
-    '%(asctime)s - %(levelname)s - %(message)s'
-))
+# ── Backend: file parsing ──
+pdfplumber>=0.11
+PyPDF2>=3.0
+python-docx>=1.1
+python-magic>=0.4.27
 
-# Simplified console handler
-console_handler = logging.StreamHandler(sys.stdout)
-console_handler.setLevel(logging.WARNING)
-console_handler.setFormatter(logging.Formatter('%(levelname)s: %(message)s'))
+# ── Backend: PDF report generation ──
+jinja2>=3.1
+weasyprint>=60.0
 
-if not logger.handlers:
-    logger.addHandler(file_handler)
-    logger.addHandler(console_handler)
+# ── Backend: external services ──
+httpx>=0.27                  # async Supabase REST client
+groq>=0.13                   # Groq LLM client (0.13+ is required for httpx>=0.28 compatibility)
+PyJWT[crypto]>=2.8           # verifies Supabase access tokens (HS256)
 
-class ATSBaseError(Exception):
-    """Simple base class for ATS errors."""
-    def __init__(self, message: str, user_message: Optional[str] = None, **kwargs):
-        super().__init__(message)
-        self.message = message
-        self.user_message = user_message or 'An error occurred. Please try again.'
-
-class FileUploadError(ATSBaseError):
-    pass
-
-class FileParsingError(ATSBaseError):
-    pass
-
-class TextExtractionError(ATSBaseError):
-    pass
-
-def log_error(error: Exception, context: Optional[str] = None, **kwargs) -> None:
-    """Log an error simply."""
-    logger.error(f"Error in {context or 'unknown'}: {error}")
-
-def log_warning(message: str, context: Optional[str] = None, **kwargs) -> None:
-    """Log a warning simply."""
-    logger.warning(f"{context}: {message}" if context else message)
-
-def log_info(message: str, context: Optional[str] = None, **kwargs) -> None:
-    """Log info simply."""
-    logger.info(f"{context}: {message}" if context else message)
-
-T = TypeVar('T')
-
-def with_fallback(
-    primary_func: Callable[..., T],
-    fallback_func: Callable[..., T],
-    *args,
-    log_fallback: bool = True,
-    **kwargs
-) -> Tuple[T, bool]:
-    # Remove error_category if passed by accident
-    kwargs.pop('error_category', None)
-    try:
-        return primary_func(*args, **kwargs), False
-    except Exception as primary_error:
-        if log_fallback:
-            log_warning(f"Primary method failed, trying fallback: {primary_error}")
-        try:
-            return fallback_func(*args, **kwargs), True
-        except Exception as fallback_error:
-            log_error(fallback_error, context="fallback")
-            raise
-
-def get_default_grammar_results() -> Dict:
-    return {
-        'total_errors':         0,
-        'critical_errors':      [],
-        'moderate_errors':      [],
-        'minor_errors':         [],
-        'grammar_score':        100,
-        'penalty_applied':      0,
-        'error_free_percentage': 100,
-        '_component_status':    'unavailable',
-        '_note': 'Grammar checking unavailable.'
-    }
-
-def get_default_location_results() -> Dict:
-    return {
-        'location_found':     False,
-        'detected_locations': [],
-        'privacy_risk':       'unknown',
-        'recommendations':    ['Location detection unavailable.'],
-        'penalty_applied':    0,
-        '_component_status':  'unavailable',
-        '_note': 'Location detection unavailable.'
-    }
-
-def get_default_skill_validation_results() -> Dict:
-    return {
-        'validated_skills':     [],
-        'unvalidated_skills':   [],
-        'validation_percentage': 0.0,
-        'skill_project_mapping': {},
-        'validation_score':     0.0,
-        '_component_status':    'unavailable',
-        '_note': 'Skill validation unavailable.'
-    }
-
-def get_default_jd_comparison_results() -> Dict:
-    return {
-        'semantic_similarity': 0.0,
-        'matched_keywords':    [],
-        'missing_keywords':    [],
-        'skills_gap':          [],
-        'match_percentage':    0.0,
-        '_component_status':   'unavailable',
-        '_note': 'JD comparison unavailable.'
-    }
+# ── Frontend ──
+streamlit>=1.32
+requests>=2.31
+supabase>=2.4                # frontend auth client (email/password + OAuth)
