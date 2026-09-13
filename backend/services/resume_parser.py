@@ -215,28 +215,52 @@ def extrafct_text(file_data: bytes, file_type: str) -> str:
 def parse_resume_file(file_data: bytes, filename:str) -> tuple[str, dict]:
     log_info(f'parsing file :{filename}', context ='parse_Resume_file')
     
-    is_valid, error_msg, file_type = validate_file(file_data, filename)
-    if not is_valid:
-        log_warning(f'validation failed for file {filename}, context = 'parse_resume_file')
-        raise FileValidationError(error_msg)
+    #phase 01: validate file
+    try: 
+        is_valid, error_msg, file_type = validate_file(file_data, filename)
+        if not is_valid:
+            log_warning(f'validation failed for file {filename}, context = 'parse_resume_file')
+            raise FileValidationError(error_msg)
         
     except FileValidationError as e:
         raise
         
     except Exception as e:
-        log_error(e, context = 'parse_resume_file')
+        log_error(e, context = 'parse_resume_file_validation')
         raise FileUploadError(
-            'An unexpected error occured during file validation. Please try again. '
+            'Could not validate the uploaded file. Please ensure it is a valid PDF or DOCX. '
         ) from e
         
         
         
-    # phase 03: extraction of
-    
-
-
+    # phase 02: extraction of file   
         
-
+    try:
+       text = extract_text(file_data, file_type)
+       log_info(f'Extracted {len(text)} chars from {filename}', context = '')
+       
+    except FileParsingError:
+        raise
+        
+    except Exception as e:
+       log_error(e, context = 'parse_resume_file_extraction')
+       raise FileParsingError(
+           'An unexpected error occured while processing the file. '
+           'Please try again or contact support if the problem persists. '
+       ) from e
+       
+    metadata = {
+        'filename':             filename,
+        'file_type':            file_type,
+        'file_size_bytes':      len(file_data),
+        'text_length':          len(text),
+        'success':              True,
+        }
+        return text, metadata
+       
+    
+    
+    
         
                             
                             
