@@ -22,5 +22,6 @@ def _get_client() -> Groq:
     return _client
 
 RESUME_SYSTEM_PROMPT = (
-    
+    "You are a resume parser. Extract information from the resume "
+    "and return ONLY a valid JSON object. No explanation, no markdown."
 )
