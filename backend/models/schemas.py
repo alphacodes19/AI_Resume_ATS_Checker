@@ -1,6 +1,5 @@
 from typing import Any, Dict, List, Optional
-form pydantic import BaseModel
-
+from pydantic import BaseModel
 
 class ComponentScores(BaseModel):
     formatting: float
@@ -8,23 +7,21 @@ class ComponentScores(BaseModel):
     content: float
     skill_validation: float
     ats_compatibility: float
-    
-    
+
 class JDComparison(BaseModel):
     match_percentage: float
     semantic_similarity: float
     matched_keywords: List[str]
     missing_keywords: List[str]
     skills_gap: List[str]
-    
-    
-class SkillsValidationDetails(BaseModel):
-    validatedL: List[Dict[str, Any]] = []  # [{'skills': str, 'projects': [str]}]
-    unvalidated: List[str] = []  #['Flask', 'A/B Testing, .....']
+
+class SkillValidationDetails(BaseModel):
+    validated: List[Dict[str, Any]] = []       # [{'skill': str, 'projects': [str]}]
+    unvalidated: List[str] = []                # ['Flask', 'A/B Testing', ...]
     total: int = 0
     validated_count: int = 0
     validation_pct: float = 0.0
-    
+
 class IssueDetail(BaseModel):
     issue_title: str
     severity_level: str
@@ -34,7 +31,7 @@ class IssueDetail(BaseModel):
     how_to_fix: str
     action_items: List[str] = []
     example_improvement: str
-    
+
 class AnalysisResponse(BaseModel):
     ATS_score: float
     component_scores: ComponentScores
@@ -42,7 +39,15 @@ class AnalysisResponse(BaseModel):
     detailed_feedback: List[IssueDetail]
     jd_match_analysis: Optional[JDComparison] = None
     skill_validation_details: Optional[SkillValidationDetails] = None
-    
+
     ats_score: float
     keyword_match: float = 0.0
-    
+    missing_keywords: List[str] = []
+    matched_keywords: List[str] = []
+    suggestions: List[str] = []
+    strengths: List[str] = []
+    critical_issues: List[str] = []
+    skills: List[str] = []
+    jd_comparison: Optional[JDComparison] = None
+    warnings: List[str] = []
+    interpretation: str = ""

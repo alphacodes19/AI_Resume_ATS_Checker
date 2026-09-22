@@ -1,9 +1,11 @@
 import logging
 from typing import List, Optional
 
-from fastapi import APIRouter, File, Form, Header, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 
-form backend.utils.file_utils import(
+from backend.api.auth import get_current_user
+from backend.models.schemas import AnalysisResponse, ComponentScores, JDComparison, SkillValidationDetails
+from backend.utils.file_utils import (
     get_default_grammar_results,
     get_default_location_results,
     get_default_skill_validation_results,
@@ -11,7 +13,7 @@ form backend.utils.file_utils import(
 
 logger = logging.getLogger('ats_resume_scorer')
 
-router = APIRouter(prefix = '/api/v1', tags = ['Analysis'])
+router = APIRouter(prefix='/api/v1', tags=['Analysis'])
 
 def _clean(text: str) -> str:
     for prefix in ('✅', '🌟', '❌', '⚠️', '📝', '🔴', '🟡', '🟢', '🟠', '👍'):
