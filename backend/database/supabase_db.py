@@ -2,7 +2,7 @@ import logging
 import httpx
 import json
 from datetime import datetime, timezone
-from typing import ist, Optional, Dict
+from typing import List, Optional, Dict
 
 logger = logging.getLogger('ats_resume_scorer')
 
@@ -54,8 +54,8 @@ async def save_analysis(user_id: str, filename: str, analysis_result: Dict) -> O
     except Exception as exc:
         logger.error(f"Failed to save analysis to Supabase: {exc}")
         return None
-    
-    async def get_user_history(user_id: str) -> List[Dict]:
+
+async def get_user_history(user_id: str) -> List[Dict]:
     headers = _get_headers()
     if not headers:
         return []

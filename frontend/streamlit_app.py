@@ -50,7 +50,7 @@ if (
 #Load custom CSS
 def load_css():
     try:
-        css_path = Path(__file__).parent / 'assets' / 'styles.css'
+        css_path = Path(__file__).parent / 'assets' / 'style.css'
         with open(css_path, 'r') as f:
             return f'<style>{f.read()}</style>'
     except FileNotFoundError:

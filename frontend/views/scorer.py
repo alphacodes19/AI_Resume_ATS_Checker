@@ -1,79 +1,42 @@
+import requests
 import streamlit as st
 
+from frontend.components.dashboard import display_results_dashboard
+from frontend.services import api_client
 
-def render():
-    """Render the resources page"""
-    
-    st.title("📚 Resources & Tips")
-    st.markdown("Learn how to optimize your resume for ATS systems")
-    
-    # ATS Tips
-    st.markdown("## 🎯 ATS Optimization Tips")
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.markdown("""
-        ### ✅ Do's
-        - Use standard section headings
-        - Include relevant keywords from job description
-        - Use simple, clean formatting
-        - List skills explicitly
-        - Quantify achievements with numbers
-        - Use standard fonts (Arial, Calibri, Times New Roman)
-        - Save as PDF or DOCX
-        """)
-    
-    with col2:
-        st.markdown("""
-        ### ❌ Don'ts
-        - Avoid tables and text boxes
-        - Don't use headers/footers for important info
-        - Avoid images and graphics
-        - Don't use unusual fonts
-        - Avoid columns (use single column layout)
-        - Don't keyword stuff
-        - Avoid abbreviations without spelling out first
-        """)
-    
-    st.markdown("---")
-    
-    # Common ATS Keywords
-    st.markdown("## 🔑 Common ATS Keywords by Industry")
-    
-    tab1, tab2, tab3 = st.tabs(["💻 Tech", "💼 Business", "🎨 Creative"])
-    
-    with tab1:
-        st.markdown("""
-        **Software Development:**
-        - Programming languages (Python, Java, JavaScript)
-        - Frameworks (React, Django, Spring)
-        - Tools (Git, Docker, Kubernetes)
-        - Methodologies (Agile, Scrum, CI/CD)
-        """)
-    
-    with tab2:
-        st.markdown("""
-        **Business & Management:**
-        - Project management
-        - Stakeholder engagement
-        - Budget management
-        - Strategic planning
-        - Team leadership
-        """)
-    
-    with tab3:
-        st.markdown("""
-        **Creative & Design:**
-        - Adobe Creative Suite
-        - UI/UX Design
-        - Wireframing & Prototyping
-        - Brand identity
-        - Visual communication
-        """)
-    
-    st.markdown("---")
-    
-    # Resume Templates
-    st.markdown("## 📄 ATS-Friendly Resume Templates")
-    st.info("Coming soon: Downloadable ATS-optimized resume templates")
+
+def _show_backend_error(exc: Exception) -> None:
+    if isinstance(exc, requests.ConnectionError):
+        st.error("Could not reach the backend. It may be starting up — retry in a minute.")
+    elif isinstance(exc, requests.HTTPError) and exc.response is not None:
+        st.error(f"Backend returned {exc.response.status_code}: {exc.response.text}")
+    else:
+        st.error(f"Unexpected error: {exc}")
+
+
+def render() -> None:
+    st.title("🎯 ATS Scorer")
+    token = st.session_state.get("access_token")
+    if not token:
+        st.warning("⚠️ Sign in from the sidebar to analyze a resume.")
+        return
+
+    resume = st.file_uploader("Upload your resume (PDF or DOCX)", type=["pdf", "docx", "doc"])
+    jd = st.text_area("Job description (optional)", height=180)
+
+    if st.button("Analyze", type="primary", disabled=resume is None):
+        with st.spinner("Analyzing… the first request after idle can take a minute."):
+            try:
+                st.session_state.last_analysis = api_client.analyze_resume(resume, token, jd)
+            except requests.RequestException as exc:
+                _show_backend_error(exc)
+                return
+
+    analysis = st.session_state.get("last_analysis")
+    if analysis:
+        display_results_dashboard(analysis)
+        try:
+            pdf = api_client.generate_pdf(analysis, token)
+            st.download_button("⬇️ Download PDF report", pdf, "ats_report.pdf", "application/pdf")
+        except requests.RequestException:
+            st.caption("PDF report unavailable right now.")

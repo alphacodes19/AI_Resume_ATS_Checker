@@ -1,84 +1,124 @@
-from typing import Any, Dict, List
+"""Supabase auth over plain REST (no SDK) — email/password + Google OAuth (PKCE)."""
+import base64
+import hashlib
+import secrets
+from typing import Any, Dict
+from urllib.parse import urlencode
 
 import requests
 import streamlit as st
 
+# PKCE verifiers must survive the redirect to Google and back, which starts a new
+# Streamlit session. A process-level dict keyed by a random `sid` bridges that gap.
+_PENDING_VERIFIERS: Dict[str, str] = {}
 
-DEFAULT_BACKEND_URL = "http://localhost:8000"
 
-
-def _backend_url() -> str:
+def _cfg() -> Dict[str, str]:
     try:
-        return st.secrets["backend"]["url"]
+        s = st.secrets["supabase"]
+        return {
+            "url": s["url"].rstrip("/"),
+            "key": s["anon_key"],
+            "redirect": s.get("redirect_url", ""),
+        }
     except (KeyError, FileNotFoundError):
-        return DEFAULT_BACKEND_URL
+        return {}
 
 
-def _auth_headers(access_token: str) -> Dict[str, str]:
-    return {"Authorization": f"Bearer {access_token}"}
+def _headers(key: str) -> Dict[str, str]:
+    return {"apikey": key, "Content-Type": "application/json"}
 
 
-def health_check() -> Dict[str, Any]:
-    response = requests.get(f"{_backend_url()}/api/v1/health", timeout=10)
-    response.raise_for_status()
-    return response.json()
-
-
-def analyze_resume(
-    resume_file,
-    access_token: str,
-    job_description: str = "",
-) -> Dict[str, Any]:
-    files = {
-        "resume": (resume_file.name, resume_file.getvalue(), resume_file.type),
+def _session_result(data: Dict[str, Any]) -> Dict[str, Any]:
+    user = data.get("user") or {}
+    return {
+        "access_token": data["access_token"],
+        "refresh_token": data.get("refresh_token"),
+        "user_id": user.get("id"),
+        "email": user.get("email"),
     }
-    data = {"job_description": job_description}
-    response = requests.post(
-        f"{_backend_url()}/api/v1/analyze-resume",
-        files=files,
-        data=data,
-        headers=_auth_headers(access_token),
-        timeout=180,
+
+
+def _err(resp: requests.Response) -> Dict[str, str]:
+    try:
+        body = resp.json()
+        msg = body.get("error_description") or body.get("msg") or body.get("message") or resp.text
+    except ValueError:
+        msg = resp.text
+    return {"error": msg}
+
+
+def sign_in_with_password(email: str, password: str) -> Dict[str, Any]:
+    c = _cfg()
+    if not c:
+        return {"error": "Supabase is not configured in Streamlit secrets."}
+    r = requests.post(
+        f"{c['url']}/auth/v1/token?grant_type=password",
+        json={"email": email, "password": password},
+        headers=_headers(c["key"]), timeout=20,
     )
-    response.raise_for_status()
-    return response.json()
+    return _session_result(r.json()) if r.ok else _err(r)
 
 
-def get_history(access_token: str) -> List[Dict[str, Any]]:
-    response = requests.get(
-        f"{_backend_url()}/api/v1/history",
-        headers=_auth_headers(access_token),
-        timeout=30,
+def sign_up_with_password(email: str, password: str) -> Dict[str, Any]:
+    c = _cfg()
+    if not c:
+        return {"error": "Supabase is not configured in Streamlit secrets."}
+    r = requests.post(
+        f"{c['url']}/auth/v1/signup",
+        json={"email": email, "password": password},
+        headers=_headers(c["key"]), timeout=20,
     )
-    response.raise_for_status()
-    return response.json()
+    if not r.ok:
+        return _err(r)
+    data = r.json()
+    if data.get("access_token"):
+        return _session_result(data)
+    return {"pending_confirmation": True, "email": email}
 
 
-def delete_history_entry(analysis_id: str, access_token: str) -> None:
-    response = requests.delete(
-        f"{_backend_url()}/api/v1/history/{analysis_id}",
-        headers=_auth_headers(access_token),
-        timeout=30,
+def sign_out() -> None:
+    c = _cfg()
+    token = st.session_state.get("access_token")
+    if not c or not token:
+        return
+    try:
+        requests.post(
+            f"{c['url']}/auth/v1/logout",
+            headers={**_headers(c["key"]), "Authorization": f"Bearer {token}"}, timeout=10,
+        )
+    except requests.RequestException:
+        pass
+
+
+def google_oauth_url() -> Dict[str, str]:
+    c = _cfg()
+    if not c or not c["redirect"]:
+        return {"error": "redirect_url not set in secrets"}
+    verifier = secrets.token_urlsafe(64)
+    challenge = base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).rstrip(b"=").decode()
+    sid = secrets.token_urlsafe(8)
+    _PENDING_VERIFIERS[sid] = verifier
+    sep = "&" if "?" in c["redirect"] else "?"
+    params = {
+        "provider": "google",
+        "redirect_to": f"{c['redirect']}{sep}sid={sid}",
+        "code_challenge": challenge,
+        "code_challenge_method": "s256",
+    }
+    return {"url": f"{c['url']}/auth/v1/authorize?{urlencode(params)}"}
+
+
+def exchange_code_for_session(code: str) -> Dict[str, Any]:
+    c = _cfg()
+    if not c:
+        return {"error": "Supabase is not configured."}
+    verifier = _PENDING_VERIFIERS.pop(st.query_params.get("sid", ""), None)
+    if not verifier:
+        return {"error": "Login session expired — please try again."}
+    r = requests.post(
+        f"{c['url']}/auth/v1/token?grant_type=pkce",
+        json={"auth_code": code, "code_verifier": verifier},
+        headers=_headers(c["key"]), timeout=20,
     )
-    response.raise_for_status()
-
-
-def generate_pdf(analysis_data: Dict[str, Any], access_token: str) -> bytes:
-    response = requests.post(
-        f"{_backend_url()}/api/v1/generate-pdf",
-        json=analysis_data,
-        headers=_auth_headers(access_token),
-        timeout=60,
-    )
-    response.raise_for_status()
-    return response.content
-
-
-def get_history_pdf(analysis_id: str, access_token: str) -> bytes:
-    response = requests.get(
-        f"{_backend_url()}/api/v1/history/{analysis_id}/pdf",
-        headers=_auth_headers(access_token),
-        timeout=60,
-    )
-    response.raise_for_status()
-    return response.content
+    return _session_result(r.json()) if r.ok else _err(r)
