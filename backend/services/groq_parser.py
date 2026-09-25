@@ -258,3 +258,4 @@ def _validate_resume_result(result: dict) -> dict:
 
     return result
 
+

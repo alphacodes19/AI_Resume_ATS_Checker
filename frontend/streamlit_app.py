@@ -1,10 +1,21 @@
 import streamlit as st
 import sys
+import os
 from pathlib import Path
 
 # Put the repo root on sys.path so `from frontend.views import ...` resolves
 # regardless of the directory streamlit was launched from.
 sys.path.insert(0, str(Path(__file__).parent.parent))
+
+# The backend modules (backend/core/config.py etc.) read these via
+# os.getenv(...). Streamlit only exposes them through st.secrets, so copy
+# them into the environment before any backend module gets imported —
+# this must run before frontend.views (which imports api_client ->
+# local_backend -> backend.*) is imported below.
+for _key in ("GROQ_API_KEY", "SUPABASE_URL", "SUPABASE_KEY", "SUPABASE_ANON_KEY"):
+    _val = st.secrets.get("env", {}).get(_key)
+    if _val:
+        os.environ[_key] = _val
 
 # Configure page
 st.set_page_config(
@@ -50,7 +61,7 @@ if (
 #Load custom CSS
 def load_css():
     try:
-        css_path = Path(__file__).parent / 'assets' / 'style.css'
+        css_path = Path(__file__).parent / 'assets' / 'styles.css'
         with open(css_path, 'r') as f:
             return f'<style>{f.read()}</style>'
     except FileNotFoundError:

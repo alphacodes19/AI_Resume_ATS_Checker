@@ -1,84 +1,46 @@
+"""
+Same public functions/signatures as the original HTTP api_client, so
+frontend/views/*.py don't need to change. Internally these now call the
+analysis pipeline in-process (see local_backend.py) instead of making an
+HTTP request to a separate FastAPI server.
+
+`access_token` is kept as a parameter for compatibility with existing call
+sites, but the user id (needed for saving/reading history) comes from
+`st.session_state["user_id"]`, which is set at sign-in.
+"""
 from typing import Any, Dict, List
 
-import requests
 import streamlit as st
 
-
-DEFAULT_BACKEND_URL = "http://localhost:8000"
-
-
-def _backend_url() -> str:
-    try:
-        return st.secrets["backend"]["url"]
-    except (KeyError, FileNotFoundError):
-        return DEFAULT_BACKEND_URL
+from frontend.services import local_backend
 
 
-def _auth_headers(access_token: str) -> Dict[str, str]:
-    return {"Authorization": f"Bearer {access_token}"}
+def _user_id() -> str:
+    user_id = st.session_state.get("user_id")
+    if not user_id:
+        raise RuntimeError("Not signed in.")
+    return user_id
 
 
 def health_check() -> Dict[str, Any]:
-    response = requests.get(f"{_backend_url()}/api/v1/health", timeout=10)
-    response.raise_for_status()
-    return response.json()
+    return local_backend.health_check()
 
 
-def analyze_resume(
-    resume_file,
-    access_token: str,
-    job_description: str = "",
-) -> Dict[str, Any]:
-    files = {
-        "resume": (resume_file.name, resume_file.getvalue(), resume_file.type),
-    }
-    data = {"job_description": job_description}
-    response = requests.post(
-        f"{_backend_url()}/api/v1/analyze-resume",
-        files=files,
-        data=data,
-        headers=_auth_headers(access_token),
-        timeout=180,
-    )
-    response.raise_for_status()
-    return response.json()
+def analyze_resume(resume_file, access_token: str, job_description: str = "") -> Dict[str, Any]:
+    return local_backend.analyze_resume(resume_file, _user_id(), job_description)
 
 
 def get_history(access_token: str) -> List[Dict[str, Any]]:
-    response = requests.get(
-        f"{_backend_url()}/api/v1/history",
-        headers=_auth_headers(access_token),
-        timeout=30,
-    )
-    response.raise_for_status()
-    return response.json()
+    return local_backend.get_history(_user_id())
 
 
 def delete_history_entry(analysis_id: str, access_token: str) -> None:
-    response = requests.delete(
-        f"{_backend_url()}/api/v1/history/{analysis_id}",
-        headers=_auth_headers(access_token),
-        timeout=30,
-    )
-    response.raise_for_status()
+    local_backend.delete_history_entry(analysis_id, _user_id())
 
 
 def generate_pdf(analysis_data: Dict[str, Any], access_token: str) -> bytes:
-    response = requests.post(
-        f"{_backend_url()}/api/v1/generate-pdf",
-        json=analysis_data,
-        headers=_auth_headers(access_token),
-        timeout=60,
-    )
-    response.raise_for_status()
-    return response.content
+    return local_backend.generate_pdf(analysis_data)
 
 
 def get_history_pdf(analysis_id: str, access_token: str) -> bytes:
-    response = requests.get(
-        f"{_backend_url()}/api/v1/history/{analysis_id}/pdf",
-        headers=_auth_headers(access_token),
-        timeout=60,
-    )
-    response.raise_for_status()
-    return response.content
+    return local_backend.get_history_pdf(analysis_id, _user_id())

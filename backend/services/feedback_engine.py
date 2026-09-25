@@ -1,18 +1,16 @@
-# this part tell what exactly is wrong in our resume
-
 import re
 from typing import List, Dict, Any, Optional
 from backend.models.schemas import IssueDetail
 
 def analyze_issues(
-    resume_text: str,
-    parsed_resume: Dict,
-    skills: List[str],
-    projects: List[Dict],
-    action_verbs: List[str],
-    skill_validation: Dict,
-    scores: Dict,
-    contact_info: Optional[Dict] = None,
+        resume_text: str, 
+        parsed_resume: Dict, 
+        skills: List[str], 
+        projects: List[Dict], 
+        action_verbs: List[str], 
+        skill_validation: Dict, 
+        scores: Dict, 
+        contact_info: Optional[Dict]=None, 
 ) -> List[IssueDetail]:
     
     detected: List[IssueDetail]=[]
@@ -26,8 +24,8 @@ def analyze_issues(
 
     #Build a combined experience text for regex-based checks that still need text
     experience_text = '\n'.join(e.get('description', '') for e in exp_entries).strip()
-    
-    
+
+
     #1. missig project section
     resume_lower = resume_text.lower()
     has_projects_signal = any(kw in resume_lower for kw in [
@@ -72,10 +70,8 @@ def analyze_issues(
                 "achieving 92% accuracy. Deployed as a REST API with FastAPI."
             ),
         ))
-        
-        
-        
-        #2. missing experience section
+
+    #2. missing experience section
     has_experience_signal = any(kw in resume_lower for kw in [
         'intern', 'internship', 'employed', 'worked at', 'working at',
         'company', 'organization', 'job', 'role', 'position', 'designation',
@@ -113,8 +109,8 @@ def analyze_issues(
                 "• Reduced page load time by 40% through caching optimization"
             ),
         ))
-        
-        #3. Missing Education Section 
+
+    #3. Missing Education Section 
     has_education_signal = any(kw in resume_lower for kw in [
         'b.tech', 'btech', 'b.e.', 'b.sc', 'bsc', 'm.tech', 'mtech', 'm.sc',
         'bachelor', 'master', 'phd', 'university', 'college',
@@ -148,9 +144,8 @@ def analyze_issues(
                 "CGPA: 8.5 | Relevant Coursework: Data Structures, ML, DBMS"
             ),
         ))
-        
-        
-        #4. Missing Skills Section 
+
+    #4. Missing Skills Section 
     if not parsed_resume.get('skills') and len(skills) < 3:  # only flag if extraction also found very few skills
         detected.append(IssueDetail(
             issue_title="Missing or Weak Skills Section",
@@ -182,10 +177,8 @@ def analyze_issues(
                 "Tools: Docker, Git, AWS, PostgreSQL, MongoDB"
             ),
         ))
-        
-        
-        
-        # 5. Skills Lack Supporting Evidence
+
+    # 5. Skills Lack Supporting Evidence
     unvalidated = skill_validation.get('unvalidated_skills', [])
     validated   = skill_validation.get('validated_skills', [])
     total_skills = len(unvalidated) + len(validated)
@@ -223,8 +216,8 @@ def analyze_issues(
                 "10K records daily, reducing manual effort by 60%.'"
             ),
         ))
-        
-        #6. Weak Action Verbs 
+
+    #6. Weak Action Verbs 
     description_lines = [
         line.strip()
         for exp in exp_entries
@@ -265,8 +258,8 @@ def analyze_issues(
                 "• Implemented Stripe payment integration reducing checkout time by 30%"
             ),
         ))
-        
-        #7. No Quantifiable Achievements 
+
+    #7. No Quantifiable Achievements 
     number_pattern = r'\d+[%+]?|\$\d+'
     has_metrics = bool(re.findall(number_pattern, experience_text)) if experience_text else False
 
@@ -302,8 +295,8 @@ def analyze_issues(
                 "• Led a team of 5 developers delivering 3 features per sprint"
             ),
         ))
-        
-         #8. Missing Contact Information 
+
+    #8. Missing Contact Information 
     if contact_info:
         missing_contacts = []
         if not contact_info.get('email'):
@@ -342,9 +335,8 @@ def analyze_issues(
                     "linkedin.com/in/johndoe | github.com/johndoe"
                 ),
             ))
-            
-            
-            # 9. Low Formatting Score 
+
+    # 9. Low Formatting Score 
     formatting_score = scores.get('formatting_score', 20)
     if formatting_score < 10:
         detected.append(IssueDetail(
@@ -380,8 +372,8 @@ def analyze_issues(
                 "SKILLS (categorized)"
             ),
         ))
-        
-         #10. Missing Summary/Objective
+
+    #10. Missing Summary/Objective
     if not summary:
         detected.append(IssueDetail(
             issue_title="Missing Professional Summary",
@@ -418,24 +410,4 @@ def analyze_issues(
 
 def generate_issues_summary(detected_issues: List[IssueDetail]) -> List[str]:
     """Extract issue titles to formulate the issues_summary list."""
-    
     return [issue.issue_title for issue in detected_issues]
-    
-    
-        
-
-            
-            
-
-        
-        
-
-        
-        
-        
-        
-        
-
-
-
-

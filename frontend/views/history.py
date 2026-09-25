@@ -5,12 +5,7 @@ from frontend.services import api_client
 
 
 def _show_backend_error(exc: Exception) -> None:
-    if isinstance(exc, requests.ConnectionError):
-        st.error("Could not reach the backend. Is it running on port 8000?")
-    elif isinstance(exc, requests.HTTPError) and exc.response is not None:
-        st.error(f"Backend returned {exc.response.status_code}: {exc.response.text}")
-    else:
-        st.error(f"Unexpected error: {exc}")
+    st.error(f"Error: {exc}")
 
 
 def render() -> None:
@@ -24,7 +19,7 @@ def render() -> None:
 
     try:
         history = api_client.get_history(access_token)
-    except requests.RequestException as exc:
+    except Exception as exc:
         _show_backend_error(exc)
         return
 
@@ -69,5 +64,5 @@ def render() -> None:
                         api_client.delete_history_entry(str(entry_id), access_token)
                         st.success("Deleted.")
                         st.rerun()
-                    except requests.RequestException as exc:
+                    except Exception as exc:
                         _show_backend_error(exc)

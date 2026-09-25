@@ -38,6 +38,7 @@ def identify_missing_keywords(
     result = fuzzy_match_keywords(resume_keywords, jd_keywords, threshold=80)
     return result['missing'][:top_n]
 
+
 def analyze_skills_gap(
     resume_skills: List[str], jd_text: str, nlp: spacy.Language
 ) -> List[str]:

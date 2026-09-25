@@ -1,28 +1,26 @@
-# it will tell us what issues we have to work on first
+# it will tell us, what issues we have to work on first 
 
 from dataclasses import dataclass
 from enum import Enum
 from typing import Dict, List, Optional
 
-
 class Priority(Enum):
-    CRITICAL = 'critical'
-    HIGH = 'high'
-    MEDIUM = 'medium'
-    LOW = 'low'
-    
+    CRITICAL='critical'
+    HIGH='high'
+    MEDIUM='medium'
+    LOW='low'
+
 # Priority.CRITICAL
 
 @dataclass
-
 class Recommendation:
-    title:  str
+    title:        str
     description:  str
-    priority:  str
-    impact_score:  float
-    category: str
-    action_items:  List[str]
-    
+    priority:     Priority
+    impact_score: float
+    category:     str
+    action_items: List[str]
+
 #generator01
 def generate_skill_recommendations(skill_validation_results: Dict) -> List[Recommendation]:
     recommendations   = []
@@ -436,3 +434,4 @@ def get_recommendation_summary(recommendations_result: Dict) -> str:
             f'Found {total} recommendation(s) for improvement. '
             f'Addressing these could improve your score by up to {improvement:.0f} points.'
         )
+

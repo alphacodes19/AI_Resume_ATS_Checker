@@ -1,4 +1,4 @@
-import logging 
+import logging
 import httpx
 import json
 from datetime import datetime, timezone
@@ -11,13 +11,13 @@ from backend.core.config import SUPABASE_URL, SUPABASE_KEY
 def _get_headers():
     if not SUPABASE_URL or not SUPABASE_KEY:
         return None
-    return{
+    return {
         "apikey": SUPABASE_KEY,
         "Authorization": f"Bearer {SUPABASE_KEY}",
         "Content-Type": "application/json",
         "Prefer": "return=representation"
     }
-    
+
 async def save_analysis(user_id: str, filename: str, analysis_result: Dict) -> Optional[str]:
     headers = _get_headers()
     if not headers:
